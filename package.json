@@ -13,9 +13,10 @@
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=20.12"
+    "node": ">=21.7"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "express": "^5.3.0",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",

@@ -2,6 +2,9 @@ require('./env');
 
 const common = {
   dialect: 'postgres',
+  // Record executed seeders in the "SequelizeData" table, so running
+  // db:seed:all twice does not insert duplicates (the default is to track nothing).
+  seederStorage: 'sequelize',
   define: {
     underscored: true,
   },
