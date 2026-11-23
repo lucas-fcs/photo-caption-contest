@@ -1,5 +1,6 @@
 const { sequelize, Image, Caption, User } = require('../db/models');
 const HttpError = require('../utils/httpError');
+const { cache, cacheKeys } = require('../config/cache');
 const { serializeCaption } = require('./serializers');
 
 async function create(req, res) {
@@ -32,7 +33,10 @@ async function create(req, res) {
     });
   });
 
-  // TODO(fase 5): invalidate the cache key `images:<imageId>`.
+  // Only after the transaction committed: invalidating earlier would let a
+  // concurrent GET re-cache the old data before the new caption is visible.
+  // images:all stays valid because the list does not include captions.
+  cache.del(cacheKeys.image(imageId));
 
   res.status(201).json(serializeCaption(caption, { withImageId: true }));
 }
