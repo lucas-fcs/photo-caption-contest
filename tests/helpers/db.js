@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('../../src/db/models');
+const { store: sessionStore } = require('../../src/config/session');
 
 const SEEDERS_DIR = path.join(__dirname, '..', '..', 'src', 'db', 'seeders');
 
@@ -16,7 +17,9 @@ function assertTestDatabase() {
 async function resetDatabase() {
   assertTestDatabase();
 
-  await db.sequelize.query('TRUNCATE TABLE captions, images, users RESTART IDENTITY CASCADE');
+  await db.sequelize.query(
+    'TRUNCATE TABLE captions, images, users, sessions RESTART IDENTITY CASCADE',
+  );
 
   const queryInterface = db.sequelize.getQueryInterface();
   const seeders = fs.readdirSync(SEEDERS_DIR).filter((f) => f.endsWith('.js')).sort();
@@ -26,6 +29,8 @@ async function resetDatabase() {
 }
 
 async function closeDatabase() {
+  // The session store runs a cleanup timer; stop it before closing the pool.
+  sessionStore.stopExpiringSessions();
   await db.sequelize.close();
 }
 

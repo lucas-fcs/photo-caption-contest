@@ -26,7 +26,8 @@ module.exports = (sequelize, DataTypes) => {
       username: {
         type: DataTypes.STRING(30),
         allowNull: false,
-        unique: { msg: 'Username already taken' },
+        // 409 message lives in errorHandler (keyed by constraint name).
+        unique: true,
         set(value) {
           this.setDataValue('username', typeof value === 'string' ? value.trim() : value);
         },
@@ -38,7 +39,7 @@ module.exports = (sequelize, DataTypes) => {
       email: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: { msg: 'Email already registered' },
+        unique: true,
         // Normalized so "Lucas@X.com" and "lucas@x.com" are the same account.
         set(value) {
           this.setDataValue('email', typeof value === 'string' ? value.trim().toLowerCase() : value);
@@ -65,10 +66,12 @@ module.exports = (sequelize, DataTypes) => {
       defaultScope: {
         attributes: { exclude: ['passwordHash'] },
       },
-      // ...and login (phase 4) opts in explicitly with User.scope('withPassword').
+      // ...and login opts in explicitly with User.scope('withPassword').
+      // Calling a named scope replaces the default one, so "exclude nothing"
+      // brings every column back (an `include` would list password_hash twice).
       scopes: {
         withPassword: {
-          attributes: { include: ['passwordHash'] },
+          attributes: { exclude: [] },
         },
       },
     },

@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
       filename: {
         type: DataTypes.STRING,
         allowNull: false,
-        unique: { msg: 'Filename already in use' },
+        unique: true,
         validate: {
           notNull: { msg: 'Filename is required' },
           notEmpty: { msg: 'Filename is required' },

@@ -25,4 +25,3 @@ function validateIdParam(paramName, label) {
 }
 
 module.exports = validateIdParam;
-module.exports.MAX_INTEGER_ID = MAX_INTEGER_ID;

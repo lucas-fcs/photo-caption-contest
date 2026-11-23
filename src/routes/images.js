@@ -3,6 +3,7 @@ const { Router } = require('express');
 const imagesController = require('../controllers/imagesController');
 const captionsController = require('../controllers/captionsController');
 const validateIdParam = require('../middleware/validateIdParam');
+const requireAuth = require('../middleware/requireAuth');
 
 const router = Router();
 const validateImageId = validateIdParam('id', 'image');
@@ -11,6 +12,7 @@ const validateImageId = validateIdParam('id', 'image');
 // so the controllers need no try/catch.
 router.get('/', imagesController.list);
 router.get('/:id', validateImageId, imagesController.show);
-router.post('/:id/captions', validateImageId, captionsController.create);
+// requireAuth first: without a session the answer is 401, whatever the id.
+router.post('/:id/captions', requireAuth, validateImageId, captionsController.create);
 
 module.exports = router;

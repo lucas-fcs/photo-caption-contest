@@ -7,6 +7,10 @@ function serializeAuthor(user) {
   return { id: user.id, username: user.username };
 }
 
+function serializeUser(user) {
+  return { id: user.id, username: user.username, email: user.email };
+}
+
 function serializeCaption(caption, { withImageId = false } = {}) {
   return {
     id: caption.id,
@@ -35,6 +39,7 @@ function serializeImageDetail(image) {
 }
 
 module.exports = {
+  serializeUser,
   serializeCaption,
   serializeImageSummary,
   serializeImageDetail,

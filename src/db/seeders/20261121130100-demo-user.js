@@ -1,6 +1,7 @@
 'use strict';
 
 const bcrypt = require('bcrypt');
+const { SALT_ROUNDS } = require('../../config/auth');
 
 // Public demo account, documented in the README. Not a secret.
 const DEMO_USER = {
@@ -8,8 +9,6 @@ const DEMO_USER = {
   email: 'demo@example.com',
   password: 'demo12345',
 };
-
-const SALT_ROUNDS = 10;
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
