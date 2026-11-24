@@ -32,6 +32,9 @@ module.exports = {
     ...common,
     use_env_variable: 'DATABASE_URL',
     logging: false,
+    // Neon's free plan caps connections; a single small instance needs few.
+    // acquire is generous because a suspended Neon compute takes a moment to wake.
+    pool: { max: 5, min: 0, idle: 10000, acquire: 30000 },
     dialectOptions: {
       ssl: { require: true, rejectUnauthorized: true },
     },
