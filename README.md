@@ -2,7 +2,7 @@
 
 Backend for a photo caption contest. The server hosts a few images; anyone can browse the images and their captions, and only authenticated users can add captions.
 
-**Live API:** https://LIVE-URL-PENDING · **Interactive docs:** https://LIVE-URL-PENDING/api-docs
+**Live API:** https://photo-caption-contest-uchj.onrender.com · **Interactive docs:** https://photo-caption-contest-uchj.onrender.com/api-docs
 
 > Hosted on Render's free plan, which puts the service to sleep after 15 minutes without traffic. The first request after that takes 30 to 60 seconds; the following ones are fast.
 
