@@ -1,0 +1,542 @@
+openapi: 3.0.3
+info:
+  title: Photo Caption Contest API
+  version: 1.0.0
+  description: |
+    Backend for a photo caption contest. Anyone can browse the images and their
+    captions; only authenticated users can add captions.
+
+    **Authentication** uses a server-side session. `POST /auth/login` sets an
+    HttpOnly cookie named `pcc.sid`; browsers (and this page's "Try it out")
+    send it automatically on later requests. Protected routes answer
+    `401` in JSON instead of redirecting, since this is an API, not a website.
+
+    **Demo account:** `demo@example.com` / `demo12345`.
+
+    **Errors** always have the shape `{ "error": "message" }`.
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+servers:
+  - url: /
+    description: Same origin as this documentation
+
+tags:
+  - name: Health
+    description: Liveness check used by tests and the Render health check.
+  - name: Images
+    description: Public. GET responses are cached in memory for 300 seconds.
+  - name: Captions
+    description: Creating captions requires a session.
+  - name: Auth
+    description: Session-based authentication with an HttpOnly cookie.
+  - name: Static
+    description: Image files served from the server.
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: The API is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+              example:
+                status: ok
+
+  /images:
+    get:
+      tags: [Images]
+      summary: List all images
+      operationId: listImages
+      security: []
+      description: Ordered by id. Cached under the key `images:all`.
+      responses:
+        '200':
+          description: Every image, without captions.
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/X-Cache'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImageSummary'
+              example:
+                - id: 1
+                  title: Pier at sunset
+                  url: /static/images/pier-sunset.jpg
+                  altText: Illustration of a wooden pier over dark blue water, with a pale sun setting under an orange sky.
+                - id: 2
+                  title: Mountain lake
+                  url: /static/images/mountain-lake.jpg
+                  altText: Illustration of two grey mountain peaks against a light blue sky, above a green valley.
+
+  /images/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ImageId'
+    get:
+      tags: [Images]
+      summary: Get an image with its captions
+      operationId: getImage
+      security: []
+      description: Captions are ordered newest first. Cached under the key `images:<id>`; only `200` responses are cached.
+      responses:
+        '200':
+          description: The image and its captions.
+          headers:
+            X-Cache:
+              $ref: '#/components/headers/X-Cache'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageDetail'
+              example:
+                id: 1
+                title: Pier at sunset
+                url: /static/images/pier-sunset.jpg
+                altText: Illustration of a wooden pier over dark blue water, with a pale sun setting under an orange sky.
+                description: The last light of the day over a quiet pier. What is the pier thinking?
+                captions:
+                  - id: 7
+                    text: The pier is clearly waiting for a ferry that left in 1998.
+                    createdAt: '2026-11-21T14:00:00.000Z'
+                    author:
+                      id: 1
+                      username: demo
+        '400':
+          $ref: '#/components/responses/InvalidImageId'
+        '404':
+          $ref: '#/components/responses/ImageNotFound'
+
+  /images/{id}/captions:
+    parameters:
+      - $ref: '#/components/parameters/ImageId'
+    post:
+      tags: [Captions]
+      summary: Add a caption to an image
+      operationId: createCaption
+      description: |
+        Requires a session. The author is always the logged-in user; any
+        `userId` sent in the body is ignored. The image check and the insert
+        run in a single transaction. On success the cache key `images:<id>`
+        is invalidated, so the next GET shows the new caption.
+
+        Without a session the answer is `401`, before the id or body are validated.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCaptionRequest'
+            example:
+              text: My caption
+      responses:
+        '201':
+          description: Caption created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedCaption'
+              example:
+                id: 8
+                text: My caption
+                imageId: 1
+                author:
+                  id: 1
+                  username: demo
+                createdAt: '2026-11-21T14:05:00.000Z'
+        '400':
+          description: Invalid image id or invalid text.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidId:
+                  summary: Image id is not a positive integer
+                  value:
+                    error: Invalid image id
+                notAString:
+                  summary: Text missing or not a string
+                  value:
+                    error: Text must be a string
+                badLength:
+                  summary: Text empty (after trim) or longer than 280 characters
+                  value:
+                    error: Text must be 1-280 characters
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/ImageNotFound'
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create an account
+      operationId: register
+      security: []
+      description: Does not log the user in; call `POST /auth/login` afterwards.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              username: lucas
+              email: lucas@example.com
+              password: correct-horse
+      responses:
+        '201':
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 2
+                username: lucas
+                email: lucas@example.com
+        '400':
+          description: Invalid field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                usernameLength:
+                  value:
+                    error: Username must be 3-30 characters
+                invalidEmail:
+                  value:
+                    error: Email must be valid
+                shortPassword:
+                  value:
+                    error: Password must be at least 8 characters
+                longPassword:
+                  summary: bcrypt ignores bytes after the 72nd
+                  value:
+                    error: Password must be at most 72 bytes
+        '409':
+          description: Username or email already in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                username:
+                  value:
+                    error: Username already taken
+                email:
+                  value:
+                    error: Email already registered
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      operationId: login
+      security: []
+      description: |
+        Starts a session and sets the `pcc.sid` cookie (HttpOnly, SameSite=Lax,
+        Secure in production, valid for 1 day). A new session id is issued on
+        every login. The email is case-insensitive.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: demo@example.com
+              password: demo12345
+      responses:
+        '200':
+          description: Logged in.
+          headers:
+            Set-Cookie:
+              description: Session cookie.
+              schema:
+                type: string
+                example: pcc.sid=s%3AabcDEF...; Path=/; Expires=Wed, 25 Nov 2026 12:00:00 GMT; HttpOnly; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 1
+                username: demo
+                email: demo@example.com
+        '400':
+          description: Email or password missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Email and password are required
+        '401':
+          description: Wrong email or password. The message never says which.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Invalid credentials
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      operationId: logout
+      description: Destroys the session and clears the cookie.
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Logged out.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the logged-in user
+      operationId: getMe
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 1
+                username: demo
+                email: demo@example.com
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /static/images/{filename}:
+    get:
+      tags: [Static]
+      summary: Download an image file
+      operationId: getImageFile
+      security: []
+      description: The `url` field of every image points here.
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          example: pier-sunset.jpg
+      responses:
+        '200':
+          description: The image file.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Route not found
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: pcc.sid
+      description: Set by `POST /auth/login`.
+
+  parameters:
+    ImageId:
+      name: id
+      in: path
+      required: true
+      description: Image id (positive integer).
+      schema:
+        type: integer
+        minimum: 1
+      example: 1
+
+  headers:
+    X-Cache:
+      description: '`HIT` when served from the in-memory cache, `MISS` otherwise.'
+      schema:
+        type: string
+        enum: [HIT, MISS]
+
+  responses:
+    InvalidImageId:
+      description: The id is not a positive integer.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Invalid image id
+    ImageNotFound:
+      description: No image with this id.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Image not found
+    Unauthorized:
+      description: No valid session.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Authentication required
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable message.
+
+    Author:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+
+    User:
+      type: object
+      required: [id, username, email]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+
+    ImageSummary:
+      type: object
+      required: [id, title, url, altText]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        url:
+          type: string
+          description: Path to the image file, relative to the API.
+        altText:
+          type: string
+          description: Text alternative for accessibility.
+
+    ImageDetail:
+      allOf:
+        - $ref: '#/components/schemas/ImageSummary'
+        - type: object
+          required: [description, captions]
+          properties:
+            description:
+              type: string
+              nullable: true
+            captions:
+              type: array
+              description: Newest first.
+              items:
+                $ref: '#/components/schemas/Caption'
+
+    Caption:
+      type: object
+      required: [id, text, createdAt, author]
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+        createdAt:
+          type: string
+          format: date-time
+        author:
+          $ref: '#/components/schemas/Author'
+
+    CreatedCaption:
+      allOf:
+        - $ref: '#/components/schemas/Caption'
+        - type: object
+          required: [imageId]
+          properties:
+            imageId:
+              type: integer
+
+    CreateCaptionRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+          description: Trimmed before validation.
+
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        email:
+          type: string
+          format: email
+          description: Stored trimmed and lowercase.
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: At most 72 bytes (UTF-8).
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password

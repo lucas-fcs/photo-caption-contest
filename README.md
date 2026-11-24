@@ -41,6 +41,13 @@ npx sequelize-cli db:migrate
 npx sequelize-cli db:seed:all
 ```
 
+## API documentation
+
+- **Swagger UI:** `http://localhost:3000/api-docs`, generated from [`docs/openapi.yaml`](docs/openapi.yaml). "Try it out" works with the session: call `POST /auth/login` on the page and the browser sends the cookie on the next calls.
+- **Postman:** import [`docs/photo-caption-contest.postman_collection.json`](docs/photo-caption-contest.postman_collection.json) and run it with the Collection Runner. Every request has tests, and the folders run in order (login before captions). Change the `baseUrl` variable to target another environment. A run creates a new user and a few captions.
+
+A test (`tests/docs.test.js`) fails if a route exists in Express but is missing from `openapi.yaml`, or the other way around.
+
 ## Demo account
 
 The seeders create a public demo user:
